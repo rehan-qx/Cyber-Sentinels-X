@@ -193,22 +193,22 @@ def main():
     
     while True:
         print(Fore.MAGENTA + "\n--- SENTINEL-X COMMAND MENU ---")
-        print("1. Port Scanner")
+        print(Fore.YELLOW + "1. OSINT Tracker (REAL-TIME)")
         print("2. Phishing Detector")
-        print("3. Web Pentest")
+        print("3. Web Pentest (Recon)")
         print("4. Network Sniffer")
         print("5. MiTM Attack (Live Hack)")
-        print(Fore.YELLOW + "6. OSINT Tracker (REAL-TIME)")
+        print("6. Port Scanner")
         print("7. Exit")
         
         choice = input(Fore.WHITE + "\nroot@sentinel:~# ")
         
-        if choice == '1': port_scanner()
+        if choice == '1': osint_tracker()
         elif choice == '2': phishing_check()
         elif choice == '3': web_pentest()
         elif choice == '4': network_sniffer()
         elif choice == '5': mitm_simulation()
-        elif choice == '6': osint_tracker()
+        elif choice == '6': port_scanner()
         elif choice == '7': 
             speak("System deactivated.")
             break
