@@ -193,11 +193,11 @@ def main():
     
     while True:
         print(Fore.MAGENTA + "\n--- SENTINEL-X COMMAND MENU ---")
-        print(Fore.YELLOW + "1. OSINT Tracker (REAL-TIME)")
+        print(Fore.YELLOW + "1. OSINT Tracker ")
         print("2. Phishing Detector")
-        print("3. Web Pentest (Recon)")
+        print("3. Web Recen")
         print("4. Network Sniffer")
-        print("5. MiTM Attack (Live Hack)")
+        print("5. MiTM Attack ")
         print("6. Port Scanner")
         print("7. Exit")
         
@@ -215,3 +215,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
