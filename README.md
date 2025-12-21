@@ -35,21 +35,21 @@ Sentinel-X simplifies complex network attacks into an automated 4-step sequence:
 
 Ensure you are using Kali Linux, Parrot OS, or any Debian-based system.
 
-sudo apt update && sudo apt install bettercap mitmproxy iptables python3-pip -y
+```sudo apt update && sudo apt install bettercap mitmproxy iptables python3-pip -y```
 
 ### 2. Installation
 
 Clone the repository and install the Python dependencies:
 
-git clone https://github.com/yourusername/sentinel-x.git
-cd sentinel-x
-pip install -r requirements.txt
+```git clone https://github.com/yourusername/sentinel-x.git```
+```cd sentinel-x```
+```pip install -r requirements.txt```
 
 ### 3. Execution
 
 Launch the framework with root privileges (required for network socket manipulation):
 
-sudo python3 main.py
+```sudo python3 main.py```
 
 ## 📂 Project Structure
 
