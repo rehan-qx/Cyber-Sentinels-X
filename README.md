@@ -1,53 +1,68 @@
-# 🚀 Sentinel-X | Elite Network Security Framework
+🚀 Sentinel-X | Elite Network Security Framework
 
-Sentinel-X is an advanced, automated network exploitation and OSINT framework. It bridges the gap between high-level reconnaissance and low-level network interception by orchestrating industry-standard tools like Bettercap and Mitmproxy into a single, unified interface.
+Sentinel-X is a high-performance, automated network exploitation and OSINT framework. It seamlessly orchestrates Bettercap and Mitmproxy to perform stealthy interception, SSL stripping, and deep packet analysis through a single command-line interface.
 🛡️ Key Modules
-Module	Description	Engine
-OSINT Tracker	Scans 30+ social platforms for target profiles.	Custom Requests
-MITM Elite	Automated ARP Spoofing, SSLStrip, and Traffic Sniffing.	Bettercap + Mitmproxy
-Network Discovery	Live ARP scanning to map all devices on a LAN.	Scapy
-Web Recon	Fingerprinting servers and finding hidden admin panels.	HTTP Probes
-Port Scanner	Multi-threaded stealth scanning for open services.	Socket
+Module	Functionality	Core Engine
+OSINT Tracker	Global username search across 30+ platforms.	Requests / Threading
+MITM Elite	Automated ARP Spoofing & Transparent Proxying.	Bettercap + Mitmproxy
+Network Discovery	Real-time ARP mapping & Target Identification.	Scapy
+Web Recon	Fingerprinting, SSL Check, & Directory Brute-forcing.	HTTP Probes
+Port Scanner	High-speed multi-threaded TCP port discovery.	Socket
 📸 MITM Workflow
 
-Sentinel-X automates the entire "Man-in-the-Middle" lifecycle:
+Sentinel-X simplifies complex network attacks into an automated 4-step sequence:
 
-    Auto-Discovery: Scans the LAN for targets.
+    Intelligence: Auto-scans the LAN to identify active hosts and their MAC addresses.
 
-    Redirection: Configures Iptables to route traffic through the system.
+    Diversion: Manipulates ARP tables and sets up iptables NAT rules for transparent routing.
 
-    Interception: Uses Mitmproxy to capture flows while Bettercap handles ARP poisoning.
+    Capture: Initiates the Mitmproxy engine to intercept high-level HTTP/S traffic.
 
-    Archiving: Automatically saves every session to the sentinel_vault/.
+    Exfiltration: Automatically archives logs and raw flows into the sentinel_vault/.
 
-⚙️ Installation & Requirements
+✨ Advanced Features
 
-Ensure you are running a Linux-based system (Kali, Parrot, or Ubuntu).
-1. Install System Dependencies
+    SSLStrip Integration: Automatically attempts to downgrade HTTPS connections to intercept plaintext data.
 
-`sudo apt update && sudo apt install bettercap mitmproxy iptables python3-pip -y`
+    OS Fingerprinting: Analyzes TTL values to identify if the target is running Windows, Linux, or Android.
 
-2. Install Python Packages
+    Self-Healing Cleanup: Automatically flushes iptables and restores IP forwarding on exit to prevent target network downtime.
 
-    `pip install -r requirements.txt`
+    Visual Dashboard: Real-time attack monitoring with custom color-coded status indicators.
 
-Requirements: scapy, requests, colorama, pyttsx3
+⚙️ Quick Start
+1. Prerequisites
 
-3. Run the Tool
+Ensure you are using Kali Linux, Parrot OS, or any Debian-based system.
+Bash
 
-`sudo python3 main.py`
+sudo apt update && sudo apt install bettercap mitmproxy iptables python3-pip -y
 
-    Note: Root privileges are required for MITM and Network Sniffing operations.
+2. Installation
+
+Clone the repository and install the Python dependencies:
+Bash
+
+git clone https://github.com/yourusername/sentinel-x.git
+cd sentinel-x
+pip install -r requirements.txt
+
+3. Execution
+
+Launch the framework with root privileges (required for network socket manipulation):
+Bash
+
+sudo python3 main.py
 
 📂 Project Structure
+Plaintext
 
 Sentinel-X/
-├── main.py         
-└── README.md          
+├── main.py              # Main Orchestrator & UI
+├── sentinel_vault/      # Encrypted/Raw Session Logs (.pcap)
+├── requirements.txt     # Python Dependencies
+└── README.md            # Documentation
 
-⚠️ Disclaimer
+⚠️ Legal Disclaimer
 
-This tool is developed for educational and ethical security testing purposes only. Usage of Sentinel-X for attacking targets without prior mutual consent is illegal. The developer assumes no liability and is not responsible for any misuse or damage caused by this program.
-🤝 Contributing
-
-Feel free to fork this project, report bugs, or submit pull requests to enhance the automation engines!
+For Educational Use Only. Sentinel-X is designed for authorized penetration testing and security auditing. The developer is not responsible for any unauthorized use or damage. Use this tool ethically and always obtain permission before testing.
