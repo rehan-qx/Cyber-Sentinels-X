@@ -10,10 +10,10 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 # --- CONFIGURATION (API KEYS) ---
-URLSCAN_API_KEY = ""
-VIEWDNS_API_KEY = ""
-GEMINI_API_KEY = ""
-THUM_IO_AUTH = "" 
+URLSCAN_API_KEY = "019b3d5b-2b60-7409-911e-28acaad1448f"
+VIEWDNS_API_KEY = "92c5506b68d5884bdfda2774ecd02bd5544caebd"
+GEMINI_API_KEY = "AIzaSyCEoEoCDLg78euG1p9KF6DU7QyFb36KTX0"
+THUM_IO_AUTH = "76073-bbd919f27b3be431bd9965e2ff71de93" 
 
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)
@@ -42,7 +42,7 @@ def print_banner():
     #    ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝               #
     #                                                              #
     #         ADVANCED THREAT INTELLIGENCE & RECON                 #
-    #           [ Powered by AI & ML ]                             #
+    #                [ Powered by AI & ML ]                        #
     #                                                              #
     ################################################################
     """ + Colors.ENDC)
@@ -61,18 +61,13 @@ def log_step(message, level=1):
 # --- HELPER FUNCTIONS ---
 
 def clean_target_input(target):
-    """Removes http, https, www, and trailing paths to get pure domain"""
     target = target.strip()
-    # Remove protocol
     if target.startswith("https://"):
         target = target[8:]
     elif target.startswith("http://"):
         target = target[7:]
-    
-    # Remove trailing paths (like /express/)
     if "/" in target:
         target = target.split("/")[0]
-        
     return target
 
 def get_ip_from_domain(target):
@@ -124,37 +119,102 @@ def save_to_file(folder, filename, content):
 
 # --- AI MODULE (GEMINI) ---
 def analyze_with_gemini(data_json):
-    log_step("Initializing AI Security Analyst...", 1)
+    log_step("Initializing AI Security Analyst .....", 1)
     
     prompt = f"""
-    You are an expert Cyber Security Analyst. Analyze the following reconnaissance data for a target (Domain/IP).
+    You are an expert Cyber Security Analyst. Analyze the following reconnaissance data for a target.
     
     RAW DATA:
     {json.dumps(data_json, indent=2)}
     
     TASK:
     1. Determine if the target is SAFE, SUSPICIOUS, or MALICIOUS.
-    2. Write a professional report in English.
-    3. Highlight open ports, vulnerabilities, reputation, and missing security headers.
+    2. Analyze HTTP Headers (Security Headers missing?), WAF presence, and Open Ports.
+    3. Check Robots.txt for sensitive paths.
     4. Provide a final verdict.
     
     FORMAT:
     - Executive Summary
-    - Key Technical Findings
-    - Risk Assessment
+    - Technical Analysis (WAF, Headers, Ports)
+    - Vulnerability Assessment
     - Final Verdict (SAFE/SUSPICIOUS)
     """
     
     try:
         model = genai.GenerativeModel('gemini-2.5-flash-preview-09-2025')
-        log_step("Sending data to AI for analysis...", 2)
+        log_step("Sending deep-scan data to AI...", 2)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         log_step(f"AI Analysis Failed: {str(e)}", "error")
         return "AI Analysis could not be completed due to an API error."
 
-# --- DATA MODULES ---
+# --- NEW MODULE: HTTP ANALYSIS (Headers, WAF, Tech) ---
+def module_http_analysis(target):
+    log_step("Analyzing HTTP Security Headers & WAF...", 1)
+    results = {
+        "headers": {},
+        "waf_detected": False,
+        "server_type": "Unknown",
+        "missing_security_headers": []
+    }
+    
+    try:
+        url = f"http://{target}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        # 1. Capture Headers
+        for k, v in response.headers.items():
+            results["headers"][k] = v
+            
+        # 2. Detect Server
+        results["server_type"] = response.headers.get("Server", "Unknown")
+        log_step(f"Server Technology: {results['server_type']}", 2)
+        
+        # 3. Detect WAF (Simple Check)
+        waf_sigs = ["cloudflare", "akamai", "imperva", "sucuri"]
+        server_header = str(results["server_type"]).lower()
+        
+        for waf in waf_sigs:
+            if waf in server_header:
+                results["waf_detected"] = True
+                log_step(f"WAF Detected: {waf.capitalize()}", 2)
+                
+        # 4. Check Missing Security Headers
+        security_headers = ["Strict-Transport-Security", "X-Frame-Options", "Content-Security-Policy", "X-Content-Type-Options"]
+        for sec in security_headers:
+            if sec not in response.headers:
+                results["missing_security_headers"].append(sec)
+        
+        if results["missing_security_headers"]:
+            log_step(f"Missing Security Headers: {len(results['missing_security_headers'])}", 3)
+            
+        return results
+        
+    except Exception as e:
+        log_step(f"HTTP Analysis Failed: {str(e)}", "error")
+        return {"error": str(e)}
+
+# --- NEW MODULE: ROBOTS.TXT ---
+def module_robots_txt(target):
+    log_step("Scanning Robots.txt for hidden paths...", 1)
+    try:
+        url = f"http://{target}/robots.txt"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            lines = response.text.split('\n')
+            # Get Disallowed entries
+            disallowed = [line.strip() for line in lines if "Disallow:" in line][:10] # Top 10
+            log_step(f"Found robots.txt ({len(disallowed)} disallow rules)", 2)
+            return disallowed
+        else:
+            log_step("No robots.txt found.", 3)
+            return ["Not Found"]
+    except:
+        return ["Error Fetching"]
+
+# --- EXISTING DATA MODULES ---
 
 def module_ip_api(target_ip):
     log_step(f"Fetching IP Intelligence: {target_ip}", 1)
@@ -170,12 +230,13 @@ def module_phishs_dns(domain):
     log_step("Enumerating DNS Records...", 1)
     url = f"https://phishs.com/check-domain/load-dns-records/{domain}"
     payload = {"draw": "1", "start": "0", "length": "50", "_": "1766256616503"}
-    for i in range(3):
-        payload[f"columns[{i}][data]"] = str(i)
-        payload[f"columns[{i}][searchable]"] = "true"
-        payload[f"columns[{i}][orderable]"] = "false"
     headers = {'User-Agent': 'Mozilla/5.0', 'X-Requested-With': 'XMLHttpRequest', 'Referer': f'https://phishs.com/check-domain/{domain}'}
     try:
+        for i in range(3):
+             payload[f"columns[{i}][data]"] = str(i)
+             payload[f"columns[{i}][searchable]"] = "true"
+             payload[f"columns[{i}][orderable]"] = "false"
+             
         response = requests.get(url, params=payload, headers=headers)
         if response.status_code == 200:
             data = response.json().get("data", [])
@@ -188,13 +249,11 @@ def module_viewdns(target, target_ip):
     log_step("Running ViewDNS Security Suite...", 1)
     base_url = "https://api.viewdns.info"
     results = {}
-    log_step("Scanning Open Ports...", 2)
     try:
         r = requests.get(f"{base_url}/portscan/?host={target}&apikey={VIEWDNS_API_KEY}&output=json")
         results['open_ports'] = r.json().get('response', {})
     except: results['open_ports'] = "Error"
     
-    log_step("Checking Abuse Database...", 2)
     try:
         r = requests.get(f"{base_url}/abuselookup/?domain={target}&apikey={VIEWDNS_API_KEY}&output=json")
         results['abuse_contact'] = r.json().get('response', {})
@@ -261,10 +320,7 @@ def save_ai_report_pdf(text, folder):
 
 # --- MAIN LOGIC ---
 def run_recon_process(raw_input, mode):
-    print_banner()
     
-    # --- CLEAN INPUT ---
-    # Removes http, https, slashes to avoid OSError
     target = clean_target_input(raw_input)
     
     log_step(f"TARGET ACQUIRED: {target} [{mode.upper()}]", 1)
@@ -284,6 +340,8 @@ def run_recon_process(raw_input, mode):
         "date": str(datetime.now()),
         "resolved_ip": None,
         "ip_info": {},
+        "http_analysis": {}, # New
+        "robots_txt": [],    # New
         "dns": [],
         "viewdns": {},
         "history_scans": [],
@@ -299,8 +357,10 @@ def run_recon_process(raw_input, mode):
             log_step(f"Resolved IP: {ip}", 2)
             full_data["resolved_ip"] = ip
             full_data["ip_info"] = module_ip_api(ip)
-        else:
-            log_step("Could not resolve IP", "error")
+        
+        # New Modules Run Here
+        full_data["http_analysis"] = module_http_analysis(target)
+        full_data["robots_txt"] = module_robots_txt(target)
         
         full_data["dns"] = module_phishs_dns(target)
         full_data["viewdns"] = module_viewdns(target, ip)
@@ -310,7 +370,6 @@ def run_recon_process(raw_input, mode):
     # 3. SCREENSHOTS ENGINE
     log_step("Engaging Screenshot Engine...", 1)
 
-    # A. Historical
     if full_data["history_scans"]:
         log_step("Downloading Historical Screenshots...", 2)
         for i, item in enumerate(full_data["history_scans"]):
@@ -321,10 +380,8 @@ def run_recon_process(raw_input, mode):
                 path = download_image(url, screenshots_folder, fname)
                 if path: log_step(f"Saved: {fname}", 3)
 
-    # B. Live (Thum.io)
     if mode == "domain":
         log_step("Requesting Live Screenshots (Thum.io)...", 2)
-        
         desktop_url = f"https://image.thum.io/get/auth/{THUM_IO_AUTH}/width/1200/crop/800/noanimate/http://{target}"
         d_path = download_image(desktop_url, screenshots_folder, "Live_Desktop.png")
         if d_path: log_step("Saved: Live_Desktop.png", 3)
@@ -361,7 +418,7 @@ def run_recon_process(raw_input, mode):
                 clean_v = str(v).encode('latin-1', 'replace').decode('latin-1')
                 pdf.cell(0, 6, f"{prefix}{k}: {clean_v}", 0, 1)
 
-    print_dict(clean_data)
+    
     pdf.output(os.path.join(base_folder, "report.pdf"))
     log_step("Standard PDF Report Generated.", 2)
 
@@ -376,9 +433,11 @@ def run_recon_process(raw_input, mode):
     print("\n" + Colors.CYAN + "="*60)
     print(f"{Colors.BOLD}   AI SECURITY ASSESSMENT VERDICT{Colors.ENDC}")
     print(Colors.CYAN + "="*60 + Colors.ENDC)
-    print(ai_verdict)
-    print(Colors.CYAN + "="*60 + Colors.ENDC)
-    log_step("SCAN COMPLETE.", 1)
+   
+    
+    # EXIT MECHANISM FOR SUBPROCESS
+    input(f"\n{Colors.WARNING}Press ENTER to return to Sentinel-X Menu...{Colors.ENDC}")
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 if __name__ == "__main__":
     print_banner()
@@ -394,5 +453,4 @@ if __name__ == "__main__":
         t = input(f"{Colors.BOLD}[?] Enter Domain > {Colors.ENDC}")
         run_recon_process(t, "domain")
     else:
-
         print("Invalid Choice.")
