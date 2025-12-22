@@ -193,50 +193,30 @@ def phishing_check():
 # ------------------------------------------------------ 3. REAL WEB RECON -----------------------------------------------------------------
 def web_pentest():
     speak("Web Recon initiated.")
-    target = input(Fore.WHITE + "\nroot@sentinel:~/web# Enter URL: ")
-    if not target.startswith("http"): target = "http://" + target
-
-    try:
-        print(Fore.YELLOW + "[*] Fingerprinting Server...")
-        r = requests.get(target, timeout=5)
-        print(Fore.CYAN + f"    Server: {r.headers.get('Server', 'Hidden')}")
-        print(Fore.CYAN + f"    Tech  : {r.headers.get('server', 'TECH')}") ---
-def web_pentest():
     speak("Web Reconnaissance Mode.")
-    target = input(Fore.WHITE + "\nroot@sentinel:~/web# Enter Target IP/URL: ")
-    if not target.startswith("http"): target = "http://" + target
-    
-    log(f"Sending HTTP Probes to {target}...", "INFO")
+    speak("Engaging Advanced Web Reconnaissance Module.")
+    print(Fore.CYAN + "\n[*] LOADING EXTERNAL MODULE: RECON.PY ...")
+    time.sleep(1)
     
     try:
-        r = requests.get(target, timeout=5)
+        # Run recon.py and wait untill it completes its work
+        subprocess.run([sys.executable, "recon.py"]) 
         
-        # 1. Server Fingerprinting
-        headers = r.headers
-        server = headers.get("Server", "Unknown")
-        powered = headers.get("X-Powered-By", "Hidden")
+    except FileNotFoundError:
+        print(Fore.RED + "\n[!] CRITICAL ERROR: 'recon.py' not found in the same directory!")
+        speak("Error. Recon module missing.")
+    
+    except KeyboardInterrupt:
+        print(Fore.YELLOW + "\n[!] Module execution interrupted by user.")
         
-        print(Fore.GREEN + "\n--- SERVER FINGERPRINT ---")
-        print(f"{Fore.YELLOW}Server OS   : {Fore.WHITE}{server}")
-        print(f"{Fore.YELLOW}Technology  : {Fore.WHITE}{powered}")
-        print(f"{Fore.YELLOW}Cookies     : {Fore.WHITE}{len(r.cookies)} Detected")
-        
-        # 2. Check for Admin Panels (Real requests)
-        print(Fore.CYAN + "\n[*] Scanning for Sensitive Directories...")
-        paths = ["/admin", "/login", "/wp-admin", "/robots.txt", "/config"]
-        
-        for path in paths:
-            check_url = target + path
-            code = requests.head(check_url).status_code
-            if code == 200:
-                print(Fore.GREEN + f"[+] EXPOSED: {path:<15} (200 OK)")
-            elif code == 403:
-                print(Fore.YELLOW + f"[!] FORBIDDEN: {path:<15} (403 Blocked)")
-            else:
-                print(Fore.RED + f"[-] MISSING: {path:<15} ({code})")
-
     except Exception as e:
-        log(f"Target unreachable: {e}", "ERROR")
+        print(Fore.RED + f"\n[!] UNEXPECTED ERROR: {e}")
+        
+    
+    # Return To Main File
+    print(Fore.GREEN + "\n[*] RETURNING TO SENTINEL-X KERNEL...")
+    time.sleep(1)
+    speak("Web recon module deactivated. Returning to main menu.")
 
 # --------------------------------------------------------------------- 4. REAL NETWORK SNIFFER (SCAPY) -----------------------------------------------------------
 def network_sniffer():
@@ -417,9 +397,9 @@ def port_scanner():
     speak("Port scan finished.")
 
 def main():
-    startup_sequence()
     
     while True:
+        banner()
         print(Fore.MAGENTA + "\n--- [ SENTINEL-X COMMAND MENU ] ---")
         print(Fore.YELLOW + "1. OSINT Tracker       " + Fore.WHITE + "(Real Profile Search)")
         print(Fore.YELLOW + "2. Phishing Detector   " + Fore.WHITE + "(SSL & Redirect Analysis)")
