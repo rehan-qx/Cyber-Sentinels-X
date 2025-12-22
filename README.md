@@ -1,9 +1,10 @@
 # 🚀 Sentinel-X | Elite Network Security Framework
 
 Sentinel-X is a high-performance, automated network exploitation and OSINT framework. It seamlessly orchestrates Bettercap and Mitmproxy to perform stealthy interception, SSL stripping, and deep packet analysis through a single command-line interface.
-🛡️ Key Modules
+
+## 🛡️ Key Modules
 Module	Functionality	Core Engine
-OSINT Tracker	Global username search across 30+ platforms.	Requests / Threading
+OSINT Tracker	Global username search across 60+ platforms.	Requests / Threading
 MITM Elite	Automated ARP Spoofing & Transparent Proxying.	Bettercap + Mitmproxy
 Network Discovery	Real-time ARP mapping & Target Identification.	Scapy
 Web Recon	Fingerprinting, SSL Check, & Directory Brute-forcing.	HTTP Probes
