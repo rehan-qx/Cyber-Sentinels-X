@@ -20,10 +20,10 @@ from colorama import Fore, Style, init
 from playwright.sync_api import sync_playwright
 
 # --- CONFIGURATION (API KEYS) ---
-URLSCAN_API_KEY = "019b3d5b-2b60-7409-911e-28acaad1448f"
-VIEWDNS_API_KEY = "92c5506b68d5884bdfda2774ecd02bd5544caebd"
-GEMINI_API_KEY = "AIzaSyCEoEoCDLg78euG1p9KF6DU7QyFb36KTX0"
-THUM_IO_AUTH = "76073-bbd919f27b3be431bd9965e2ff71de93" 
+URLSCAN_API_KEY = ""
+VIEWDNS_API_KEY = ""
+GEMINI_API_KEY = ""
+THUM_IO_AUTH = "" 
 
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)
@@ -1420,4 +1420,5 @@ if __name__ == "__main__":
         t = input(f"{Colors.BOLD}[?] Enter Domain > {Colors.ENDC}")
         run_recon_process(t, "domain")
     else:
+
         print("Invalid Choice.")
