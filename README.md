@@ -42,7 +42,7 @@ Ensure you are using Kali Linux, Parrot OS, or any Debian-based system.
 
 Clone the repository and install the Python dependencies:
 
-`git clone https://github.com/rehan-qx/sentinel-x.git && cd sentinel-x && pip install -r requirements.txt`
+`git clone https://github.com/rehan-qx/sentinel-x.git && cd sentinel-x && pip install -r requirements.txt && sed -i 's/\r$//' install.sh && bash install.sh`
 
 ### 3. Execution
 
