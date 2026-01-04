@@ -55,7 +55,7 @@ sudo apt update && sudo apt install bettercap mitmproxy iptables libasound2-plug
 Clone the repository and install the dependencies. The framework includes a specialized fix for Windows-to-Linux line endings:
 
 ```bash
-git clone https://github.com/rehan-qx/sentinel-x.git
+git clone [https://github.com/rehan-qx/Cyber-Sentinels-X](https://github.com/rehan-qx/Cyber-Sentinels-X)
 cd sentinel-x
 pip install -r requirements.txt
 bash install.sh
