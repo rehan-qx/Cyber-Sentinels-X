@@ -58,7 +58,8 @@ Clone the repository and install the dependencies. The framework includes a spec
 git clone https://github.com/rehan-qx/sentinel-x.git
 cd sentinel-x
 pip install -r requirements.txt
-sed -i 's/\r$//' *.py  # Fixes Windows line endings for Linux execution
+bash install.sh
+sed -i 's/\r$//' main.py 
 
 ```
 
