@@ -18,12 +18,16 @@ from datetime import datetime
 from urllib.parse import urlparse
 from colorama import Fore, Style, init
 from playwright.sync_api import sync_playwright
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 # --- CONFIGURATION (API KEYS) ---
-URLSCAN_API_KEY = ""
-VIEWDNS_API_KEY = ""
-GEMINI_API_KEY = ""
-THUM_IO_AUTH = "" 
+URLSCAN_API_KEY = os.getenv("URLSCAN_API_KEY")
+VIEWDNS_API_KEY = os.getenv("VIEWDNS_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+THUM_IO_AUTH = os.getenv("THUM_IO_AUTH")
 
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)

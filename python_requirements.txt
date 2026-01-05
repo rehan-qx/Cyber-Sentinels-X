@@ -1,0 +1,11 @@
+requests
+colorama
+scapy
+pyttsx3
+google-generativeai
+reportlab
+fpdf
+playwright
+mitmproxy
+urllib3
+python-dotenv
